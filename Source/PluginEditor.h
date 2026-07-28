@@ -3,6 +3,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "MantraLookAndFeel.h"
 
 class MantraAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -15,6 +16,8 @@ public:
 
 private:
     MantraAudioProcessor& audioProcessor;
+
+    MantraLookAndFeel mantraLnf;
 
     std::unique_ptr<juce::Slider> inputGainSlider, driveSlider, toneSlider;
     std::unique_ptr<juce::Slider> bassSlider, midSlider, trebleSlider, presenceSlider;

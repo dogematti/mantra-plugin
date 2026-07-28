@@ -5,6 +5,8 @@
 MantraAudioProcessorEditor::MantraAudioProcessorEditor(MantraAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
+    setLookAndFeel(&mantraLnf);
+
     // Input stage
     inputGainSlider = std::make_unique<juce::Slider>(juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow);
     addAndMakeVisible(*inputGainSlider);
@@ -176,75 +178,124 @@ MantraAudioProcessorEditor::MantraAudioProcessorEditor(MantraAudioProcessor& p)
     irNameLabel = std::make_unique<juce::Label>(
         "", audioProcessor.getIRName().isNotEmpty() ? audioProcessor.getIRName() : "No IR loaded");
     addAndMakeVisible(*irNameLabel);
+    irNameLabel->setColour(juce::Label::textColourId, juce::Colour(0xff9a9aa4));
+
+    for (auto* label : { inputGainLabel.get(), driveLabel.get(), toneLabel.get(), bassLabel.get(),
+                         midLabel.get(), trebleLabel.get(), presenceLabel.get(), compThresholdLabel.get(),
+                         compRatioLabel.get(), outputGainLabel.get(), reverbRoomLabel.get(),
+                         reverbWidthLabel.get(), reverbWetLabel.get(), reverbDryLabel.get() })
+    {
+        label->setJustificationType(juce::Justification::centred);
+        label->setFont(juce::Font(juce::FontOptions(13.0f)));
+    }
 
     // Must come after the sliders exist — setSize() synchronously calls resized()
-    setSize(1080, 520);
+    setSize(1020, 496);
 }
 
 MantraAudioProcessorEditor::~MantraAudioProcessorEditor()
 {
+    setLookAndFeel(nullptr);
+}
+
+namespace
+{
+    struct Section { juce::Rectangle<int> panel; const char* title; };
+
+    const Section kSections[] = {
+        {{ 10,  52, 192, 194}, "INPUT"},
+        {{212,  52, 100, 194}, "TONE"},
+        {{322,  52, 376, 194}, "EQ"},
+        {{708,  52, 192, 194}, "DYNAMICS"},
+        {{910,  52, 100, 194}, "OUTPUT"},
+        {{ 10, 286, 376, 194}, "REVERB"},
+        {{396, 286, 614, 194}, "CABINET IR"},
+    };
 }
 
 void MantraAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour::fromRGB(30, 30, 35));
+    auto bounds = getLocalBounds().toFloat();
 
-    g.setColour(juce::Colours::white);
-    g.setFont(24.0f);
-    g.drawText("MANTRA", getLocalBounds().removeFromTop(40), juce::Justification::centred, true);
+    // Faceplate: vertical gradient with a soft amber glow behind the title
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff1a1a20), 0.0f, 0.0f,
+                                           juce::Colour(0xff101014), 0.0f, bounds.getBottom(), false));
+    g.fillRect(bounds);
 
-    // Section labels
-    g.setFont(14.0f);
-    g.setColour(juce::Colour::fromRGB(150, 150, 150));
+    g.setGradientFill(juce::ColourGradient(MantraLookAndFeel::amber.withAlpha(0.12f),
+                                           bounds.getCentreX(), 0.0f,
+                                           juce::Colours::transparentBlack,
+                                           bounds.getCentreX(), 110.0f, true));
+    g.fillRect(bounds.withHeight(110.0f));
 
-    g.drawText("INPUT", juce::Rectangle<int>(20, 50, 175, 20), juce::Justification::centred);
-    g.drawText("TONE", juce::Rectangle<int>(210, 50, 80, 20), juce::Justification::centred);
-    g.drawText("EQ", juce::Rectangle<int>(400, 50, 365, 20), juce::Justification::centred);
-    g.drawText("DYNAMICS", juce::Rectangle<int>(780, 50, 175, 20), juce::Justification::centred);
-    g.drawText("OUTPUT", juce::Rectangle<int>(970, 50, 80, 20), juce::Justification::centred);
-    g.drawText("REVERB", juce::Rectangle<int>(20, 290, 365, 20), juce::Justification::centred);
-    g.drawText("CABINET IR", juce::Rectangle<int>(450, 290, 300, 20), juce::Justification::centred);
+    // Title
+    g.setColour(MantraLookAndFeel::amber);
+    g.setFont(juce::Font(juce::FontOptions(26.0f, juce::Font::bold)).withExtraKerningFactor(0.3f));
+    g.drawText("MANTRA", getLocalBounds().removeFromTop(48), juce::Justification::centred, false);
+
+    g.setColour(MantraLookAndFeel::amber.withAlpha(0.25f));
+    g.fillRect(30, 24, getWidth() / 2 - 130, 1);
+    g.fillRect(getWidth() / 2 + 100, 24, getWidth() / 2 - 130, 1);
+
+    // Section panels
+    for (const auto& s : kSections)
+    {
+        auto r = s.panel.toFloat();
+        g.setColour(MantraLookAndFeel::panelFill);
+        g.fillRoundedRectangle(r, 8.0f);
+        g.setColour(MantraLookAndFeel::panelOutline);
+        g.drawRoundedRectangle(r.reduced(0.5f), 8.0f, 1.0f);
+
+        g.setColour(MantraLookAndFeel::textDim);
+        g.setFont(juce::Font(juce::FontOptions(13.0f, juce::Font::bold)).withExtraKerningFactor(0.15f));
+        g.drawText(s.title, s.panel.withHeight(20).translated(0, 5), juce::Justification::centred, false);
+    }
+
+    // Corner screws
+    auto drawScrew = [&g](float cx, float cy)
+    {
+        juce::Rectangle<float> screw(cx - 5.0f, cy - 5.0f, 10.0f, 10.0f);
+        g.setColour(juce::Colour(0xff34343c));
+        g.fillEllipse(screw);
+        g.setColour(juce::Colour(0xff55555e));
+        g.drawEllipse(screw, 1.0f);
+        g.setColour(juce::Colour(0xff15151a));
+        g.drawLine(cx - 3.0f, cy + 3.0f, cx + 3.0f, cy - 3.0f, 1.5f);
+    };
+    drawScrew(16.0f, 16.0f);
+    drawScrew((float)getWidth() - 16.0f, 16.0f);
+    drawScrew(16.0f, (float)getHeight() - 16.0f);
+    drawScrew((float)getWidth() - 16.0f, (float)getHeight() - 16.0f);
 }
 
 void MantraAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced(10);
-    bounds.removeFromTop(60);
+    const int knobW = 80, knobH = 140;
+    const int row1Y = 96, row2Y = 330;
 
-    int sliderX = 20;
-    int sliderY = 80;
-    int sliderWidth = 80;
-    int sliderHeight = 140;
-    int spacing = 190;
+    // Row 1: input | tone | EQ | dynamics | output (positions match kSections panels)
+    inputGainSlider->setBounds(20, row1Y, knobW, knobH);
+    driveSlider->setBounds(112, row1Y, knobW, knobH);
 
-    // Input section
-    inputGainSlider->setBounds(sliderX, sliderY, sliderWidth, sliderHeight);
-    driveSlider->setBounds(sliderX + spacing / 2, sliderY, sliderWidth, sliderHeight);
+    toneSlider->setBounds(222, row1Y, knobW, knobH);
 
-    // Tone section
-    toneSlider->setBounds(sliderX + spacing, sliderY, sliderWidth, sliderHeight);
+    bassSlider->setBounds(332, row1Y, knobW, knobH);
+    midSlider->setBounds(424, row1Y, knobW, knobH);
+    trebleSlider->setBounds(516, row1Y, knobW, knobH);
+    presenceSlider->setBounds(608, row1Y, knobW, knobH);
 
-    // EQ section
-    bassSlider->setBounds(sliderX + spacing * 2, sliderY, sliderWidth, sliderHeight);
-    midSlider->setBounds(sliderX + spacing * 2 + spacing / 2, sliderY, sliderWidth, sliderHeight);
-    trebleSlider->setBounds(sliderX + spacing * 3, sliderY, sliderWidth, sliderHeight);
-    presenceSlider->setBounds(sliderX + spacing * 3 + spacing / 2, sliderY, sliderWidth, sliderHeight);
+    compThresholdSlider->setBounds(718, row1Y, knobW, knobH);
+    compRatioSlider->setBounds(810, row1Y, knobW, knobH);
 
-    // Dynamics section
-    compThresholdSlider->setBounds(sliderX + spacing * 4, sliderY, sliderWidth, sliderHeight);
-    compRatioSlider->setBounds(sliderX + spacing * 4 + spacing / 2, sliderY, sliderWidth, sliderHeight);
+    outputGainSlider->setBounds(920, row1Y, knobW, knobH);
 
-    // Output section
-    outputGainSlider->setBounds(sliderX + spacing * 5, sliderY, sliderWidth, sliderHeight);
+    // Row 2: reverb | cabinet IR
+    reverbRoomSlider->setBounds(20, row2Y, knobW, knobH);
+    reverbWidthSlider->setBounds(112, row2Y, knobW, knobH);
+    reverbWetSlider->setBounds(204, row2Y, knobW, knobH);
+    reverbDrySlider->setBounds(296, row2Y, knobW, knobH);
 
-    // Second row: reverb + cabinet IR
-    int row2Y = 340;
-    reverbRoomSlider->setBounds(sliderX, row2Y, sliderWidth, sliderHeight);
-    reverbWidthSlider->setBounds(sliderX + spacing / 2, row2Y, sliderWidth, sliderHeight);
-    reverbWetSlider->setBounds(sliderX + spacing, row2Y, sliderWidth, sliderHeight);
-    reverbDrySlider->setBounds(sliderX + spacing + spacing / 2, row2Y, sliderWidth, sliderHeight);
-
-    loadIRButton->setBounds(450, row2Y, 110, 28);
-    clearIRButton->setBounds(570, row2Y, 70, 28);
-    irNameLabel->setBounds(450, row2Y + 36, 300, 24);
+    loadIRButton->setBounds(416, 350, 110, 30);
+    clearIRButton->setBounds(536, 350, 70, 30);
+    irNameLabel->setBounds(416, 396, 560, 24);
 }
