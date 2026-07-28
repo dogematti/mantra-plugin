@@ -1,5 +1,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 MantraAudioProcessor::MantraAudioProcessor()
     : AudioProcessor(BusesProperties()
@@ -18,6 +19,12 @@ void MantraAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     eq.prepare(sampleRate, samplesPerBlock);
     compressor.prepare(sampleRate, samplesPerBlock);
     reverb.prepare(sampleRate, samplesPerBlock);
+
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = (juce::uint32)samplesPerBlock;
+    spec.numChannels = (juce::uint32)getTotalNumOutputChannels();
+    irConvolution.prepare(spec);
 }
 
 void MantraAudioProcessor::releaseResources()
@@ -73,11 +80,46 @@ void MantraAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     // Apply EQ
     eq.processEQ(buffer, bassEQ, midEQ, trebleEQ, presence);
 
+    // Apply cabinet IR (convolution)
+    if (irLoaded.load())
+    {
+        juce::dsp::AudioBlock<float> block(buffer);
+        juce::dsp::ProcessContextReplacing<float> context(block);
+        irConvolution.process(context);
+    }
+
     // Apply reverb
     reverb.processReverb(buffer, reverbRoomSize, reverbWidth, reverbWet, reverbDry);
 
     // Apply output gain
     buffer.applyGain(outputGain);
+}
+
+juce::AudioProcessorEditor* MantraAudioProcessor::createEditor()
+{
+    return new MantraAudioProcessorEditor(*this);
+}
+
+void MantraAudioProcessor::loadImpulseResponse(const juce::File& file)
+{
+    if (!file.existsAsFile())
+        return;
+
+    irConvolution.loadImpulseResponse(file,
+                                      juce::dsp::Convolution::Stereo::yes,
+                                      juce::dsp::Convolution::Trim::yes,
+                                      0,
+                                      juce::dsp::Convolution::Normalise::yes);
+    irName = file.getFileName();
+    irLoaded.store(true);
+    apvts.state.setProperty("irPath", file.getFullPathName(), nullptr);
+}
+
+void MantraAudioProcessor::clearImpulseResponse()
+{
+    irLoaded.store(false);
+    irName.clear();
+    apvts.state.removeProperty("irPath", nullptr);
 }
 
 void MantraAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
@@ -91,7 +133,15 @@ void MantraAudioProcessor::setStateInformation(const void* data, int sizeInBytes
     auto xmlString = juce::String::fromUTF8((const char*)data, sizeInBytes);
     auto xmlElement = std::unique_ptr<juce::XmlElement>(juce::XmlDocument::parse(xmlString));
     if (xmlElement != nullptr)
+    {
         apvts.state = juce::ValueTree::fromXml(*xmlElement);
+
+        auto irPath = apvts.state.getProperty("irPath").toString();
+        if (irPath.isNotEmpty())
+            loadImpulseResponse(juce::File(irPath));
+        else
+            clearImpulseResponse();
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout MantraAudioProcessor::createParameterLayout()

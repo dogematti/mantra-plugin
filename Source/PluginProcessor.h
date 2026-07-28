@@ -20,8 +20,8 @@ public:
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
-    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
-    bool hasEditor() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
 
     const juce::String getName() const override { return "Mantra"; }
 
@@ -43,11 +43,19 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+    void loadImpulseResponse(const juce::File& file);
+    void clearImpulseResponse();
+    juce::String getIRName() const { return irName; }
+
 private:
     Saturation saturation;
     EQ eq;
     Compressor compressor;
     Reverb reverb;
+
+    juce::dsp::Convolution irConvolution;
+    std::atomic<bool> irLoaded{false};
+    juce::String irName;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MantraAudioProcessor)
 };

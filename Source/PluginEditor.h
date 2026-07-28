@@ -19,11 +19,13 @@ private:
     std::unique_ptr<juce::Slider> inputGainSlider, driveSlider, toneSlider;
     std::unique_ptr<juce::Slider> bassSlider, midSlider, trebleSlider, presenceSlider;
     std::unique_ptr<juce::Slider> compThresholdSlider, compRatioSlider;
+    std::unique_ptr<juce::Slider> reverbRoomSlider, reverbWidthSlider, reverbWetSlider, reverbDrySlider;
     std::unique_ptr<juce::Slider> outputGainSlider;
 
     std::unique_ptr<juce::Label> inputGainLabel, driveLabel, toneLabel;
     std::unique_ptr<juce::Label> bassLabel, midLabel, trebleLabel, presenceLabel;
     std::unique_ptr<juce::Label> compThresholdLabel, compRatioLabel;
+    std::unique_ptr<juce::Label> reverbRoomLabel, reverbWidthLabel, reverbWetLabel, reverbDryLabel;
     std::unique_ptr<juce::Label> outputGainLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> inputGainAttachment;
@@ -35,7 +37,15 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> presenceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> compThresholdAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> compRatioAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbRoomAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbWidthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbWetAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> reverbDryAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputGainAttachment;
+
+    std::unique_ptr<juce::TextButton> loadIRButton, clearIRButton;
+    std::unique_ptr<juce::Label> irNameLabel;
+    std::unique_ptr<juce::FileChooser> irFileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MantraAudioProcessorEditor)
 };
